@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from influxdb_client.client.query_api import QueryApi
 
@@ -20,10 +20,15 @@ PROTO_LABELS: dict[str, str] = {
 }
 
 
+def _flux_time(dt: datetime) -> str:
+    utc = dt.astimezone(timezone.utc)
+    return utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def _base_flux(start: datetime, stop: datetime) -> str:
     return (
         f'from(bucket: "{get_settings().influxdb_bucket}")\n'
-        f"  |> range(start: {start.isoformat()}Z, stop: {stop.isoformat()}Z)\n"
+        f"  |> range(start: {_flux_time(start)}, stop: {_flux_time(stop)})\n"
         '  |> filter(fn: (r) => r._measurement == "traffic_minute")\n'
     )
 
@@ -40,10 +45,12 @@ def get_traffic_summary(
 
     if proto:
         flux += f'  |> filter(fn: (r) => r.proto == "{proto}")\n'
+    else:
+        flux += '  |> filter(fn: (r) => r.proto == "ALL")\n'
     if src_ip:
-        flux += f'  |> filter(fn: (r) => r.src4_addr == "{src_ip}")\n'
+        flux += f'  |> filter(fn: (r) => r.src_ip == "{src_ip}")\n'
     if dst_ip:
-        flux += f'  |> filter(fn: (r) => r.dst4_addr == "{dst_ip}")\n'
+        flux += f'  |> filter(fn: (r) => r.dst_ip == "{dst_ip}")\n'
 
     flux += '  |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")\n'
     flux += '  |> sort(columns: ["_time"])\n'
@@ -91,15 +98,15 @@ def get_top_sources(
 ) -> TopEndpointsResponse:
     flux = (
         f'from(bucket: "{get_settings().influxdb_bucket}")\n'
-        f"  |> range(start: {start.isoformat()}Z, stop: {stop.isoformat()}Z)\n"
+        f"  |> range(start: {_flux_time(start)}, stop: {_flux_time(stop)})\n"
         '  |> filter(fn: (r) => r._measurement == "flow")\n'
         '  |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")\n'
-        '  |> group(columns: ["src4_addr"])\n'
+        '  |> group(columns: ["src_ip"])\n'
         '  |> reduce(\n'
         "      identity: {bytes_sum: 0.0, packets_sum: 0.0, flows_count: 0.0},\n"
         "      fn: (r, accumulator) => ({\n"
-        "          bytes_sum: accumulator.bytes_sum + (if exists r.in_bytes then r.in_bytes else 0.0),\n"
-        "          packets_sum: accumulator.packets_sum + (if exists r.in_packets then r.in_packets else 0.0),\n"
+        "          bytes_sum: accumulator.bytes_sum + (if exists r.bytes then float(v: r.bytes) else 0.0),\n"
+        "          packets_sum: accumulator.packets_sum + (if exists r.packets then float(v: r.packets) else 0.0),\n"
         "          flows_count: accumulator.flows_count + 1.0,\n"
         "      }),\n"
         "  )\n"
@@ -115,7 +122,7 @@ def get_top_sources(
         for record in table.records:
             endpoints.append(
                 TopEndpoint(
-                    ip=record.values.get("src4_addr", "unknown"),
+                    ip=record.values.get("src_ip", "unknown"),
                     bytes_sum=float(record.values.get("bytes_sum", 0) or 0),
                     packets_sum=float(record.values.get("packets_sum", 0) or 0),
                     flows_count=float(record.values.get("flows_count", 0) or 0),
@@ -133,15 +140,15 @@ def get_top_destinations(
 ) -> TopEndpointsResponse:
     flux = (
         f'from(bucket: "{get_settings().influxdb_bucket}")\n'
-        f"  |> range(start: {start.isoformat()}Z, stop: {stop.isoformat()}Z)\n"
+        f"  |> range(start: {_flux_time(start)}, stop: {_flux_time(stop)})\n"
         '  |> filter(fn: (r) => r._measurement == "flow")\n'
         '  |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")\n'
-        '  |> group(columns: ["dst4_addr"])\n'
+        '  |> group(columns: ["dst_ip"])\n'
         '  |> reduce(\n'
         "      identity: {bytes_sum: 0.0, packets_sum: 0.0, flows_count: 0.0},\n"
         "      fn: (r, accumulator) => ({\n"
-        "          bytes_sum: accumulator.bytes_sum + (if exists r.in_bytes then r.in_bytes else 0.0),\n"
-        "          packets_sum: accumulator.packets_sum + (if exists r.in_packets then r.in_packets else 0.0),\n"
+        "          bytes_sum: accumulator.bytes_sum + (if exists r.bytes then float(v: r.bytes) else 0.0),\n"
+        "          packets_sum: accumulator.packets_sum + (if exists r.packets then float(v: r.packets) else 0.0),\n"
         "          flows_count: accumulator.flows_count + 1.0,\n"
         "      }),\n"
         "  )\n"
@@ -157,7 +164,7 @@ def get_top_destinations(
         for record in table.records:
             endpoints.append(
                 TopEndpoint(
-                    ip=record.values.get("dst4_addr", "unknown"),
+                    ip=record.values.get("dst_ip", "unknown"),
                     bytes_sum=float(record.values.get("bytes_sum", 0) or 0),
                     packets_sum=float(record.values.get("packets_sum", 0) or 0),
                     flows_count=float(record.values.get("flows_count", 0) or 0),
@@ -180,9 +187,9 @@ def get_protocol_distribution(
         "  |> reduce(\n"
         "      identity: {bytes_sum: 0.0, packets_sum: 0.0, flows_count: 0.0},\n"
         "      fn: (r, accumulator) => ({\n"
-        "          bytes_sum: accumulator.bytes_sum + (if exists r.bytes_sum then r.bytes_sum else 0.0),\n"
-        "          packets_sum: accumulator.packets_sum + (if exists r.packets_sum then r.packets_sum else 0.0),\n"
-        "          flows_count: accumulator.flows_count + (if exists r.flows_count then r.flows_count else 0.0),\n"
+        "          bytes_sum: accumulator.bytes_sum + (if exists r.bytes_sum then float(v: r.bytes_sum) else 0.0),\n"
+        "          packets_sum: accumulator.packets_sum + (if exists r.packets_sum then float(v: r.packets_sum) else 0.0),\n"
+        "          flows_count: accumulator.flows_count + (if exists r.flows_count then float(v: r.flows_count) else 0.0),\n"
         "      }),\n"
         "  )\n"
     )

@@ -175,6 +175,19 @@ body {
   border-color: var(--accent);
 }
 
+.preset-btn--active {
+  background: var(--accent);
+  color: #0d1117;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.preset-btn--active:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  opacity: 0.9;
+}
+
 .filters-bar select,
 .filters-bar input[type="text"] {
   padding: 6px 10px;
@@ -192,6 +205,35 @@ body {
   border-color: var(--accent);
 }
 
+.filter-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  align-items: flex-end;
+}
+
+.export-btn {
+  padding: 6px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.export-btn:hover {
+  background: var(--accent);
+  color: #0d1117;
+}
+
+.export-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .refresh-btn {
   padding: 6px 20px;
   border: none;
@@ -202,7 +244,6 @@ body {
   font-weight: 600;
   cursor: pointer;
   transition: opacity 0.15s;
-  margin-left: auto;
 }
 
 .refresh-btn:hover {

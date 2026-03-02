@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -12,21 +13,74 @@ import type { TrafficPoint } from '../types/traffic';
 
 interface TrafficChartProps {
   points: TrafficPoint[];
+  start: string;
+  stop: string;
 }
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
 }
 
-export default function TrafficChart({ points }: TrafficChartProps) {
-  const data = points.map((p) => ({
-    time: new Date(p.time).getTime(),
-    bytes: p.bytes_sum,
-    packets: p.packets_sum,
-  }));
+function smartDateFormat(rangeMs: number): (ts: number) => string {
+  if (rangeMs <= 6 * 3600_000) return (v) => format(new Date(v), 'HH:mm');
+  if (rangeMs <= 48 * 3600_000) return (v) => format(new Date(v), 'MMM d HH:mm');
+  return (v) => format(new Date(v), 'MMM d');
+}
+
+export default function TrafficChart({ points, start, stop }: TrafficChartProps) {
+  const startMs = new Date(start).getTime();
+  const stopMs = new Date(stop).getTime();
+  const rangeMs = stopMs - startMs;
+
+  const data = useMemo(() => {
+    const mapped = points.map((p) => ({
+      time: new Date(p.time).getTime(),
+      bytes: p.bytes_sum,
+      packets: p.packets_sum,
+    }));
+
+    mapped.sort((a, b) => a.time - b.time);
+
+    if (mapped.length === 0) {
+      return [
+        { time: startMs, bytes: 0, packets: 0 },
+        { time: stopMs, bytes: 0, packets: 0 },
+      ];
+    }
+
+    const GAP_THRESHOLD = 5 * 60_000;
+    const OFFSET = 60_000;
+    const zero = { bytes: 0, packets: 0 };
+    const result: typeof mapped = [];
+
+    const firstDataTime = mapped[0].time;
+    const lastDataTime = mapped[mapped.length - 1].time;
+
+    if (firstDataTime - startMs > OFFSET) {
+      result.push({ time: startMs, ...zero });
+      result.push({ time: firstDataTime - OFFSET, ...zero });
+    }
+
+    for (let i = 0; i < mapped.length; i++) {
+      if (i > 0 && mapped[i].time - mapped[i - 1].time > GAP_THRESHOLD) {
+        result.push({ time: mapped[i - 1].time + OFFSET, ...zero });
+        result.push({ time: mapped[i].time - OFFSET, ...zero });
+      }
+      result.push(mapped[i]);
+    }
+
+    if (stopMs - lastDataTime > OFFSET) {
+      result.push({ time: lastDataTime + OFFSET, ...zero });
+      result.push({ time: stopMs, ...zero });
+    }
+
+    return result;
+  }, [points, startMs, stopMs]);
+
+  const tickFormatter = smartDateFormat(rangeMs);
 
   return (
     <div className="panel">
@@ -43,8 +97,8 @@ export default function TrafficChart({ points }: TrafficChartProps) {
           <XAxis
             dataKey="time"
             type="number"
-            domain={['dataMin', 'dataMax']}
-            tickFormatter={(v: number) => format(new Date(v), 'HH:mm')}
+            domain={[startMs, stopMs]}
+            tickFormatter={tickFormatter}
             stroke="#888"
             fontSize={12}
           />

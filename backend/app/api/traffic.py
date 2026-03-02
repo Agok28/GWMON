@@ -18,7 +18,7 @@ QueryAPIDep = Annotated[QueryApi, Depends(get_query_api)]
 
 
 def _default_start() -> datetime:
-    return datetime.now(timezone.utc) - timedelta(hours=1)
+    return datetime.now(timezone.utc) - timedelta(days=30)
 
 
 def _default_stop() -> datetime:
