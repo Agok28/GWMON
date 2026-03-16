@@ -53,6 +53,8 @@ export interface TrafficFilters {
   proto?: string;
   src_ip?: string;
   dst_ip?: string;
+  src_port?: number;
+  dst_port?: number;
 }
 
 export interface FlowRecord {

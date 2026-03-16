@@ -236,16 +236,6 @@ def get_protocol_distribution(
     return ProtocolDistributionResponse(start=start, stop=stop, protocols=protocols)
 
 
-def _split_endpoint(value: str) -> tuple[str, int]:
-    ip, _, port = value.rpartition(":")
-    if ip:
-        try:
-            return ip, int(port)
-        except ValueError:
-            pass
-    return value, 0
-
-
 def _compute_direction(src_ip: str, dst_ip: str) -> str:
     src_private = src_ip.startswith(("192.168.", "10.", "172.16."))
     dst_private = dst_ip.startswith(("192.168.", "10.", "172.16."))
@@ -258,9 +248,6 @@ def _compute_direction(src_ip: str, dst_ip: str) -> str:
     return "external"
 
 
-_PROTOS_WITH_PORTS = {"6", "17"}
-
-
 def get_flows(
     query_api: QueryApi,
     start: datetime,
@@ -268,10 +255,18 @@ def get_flows(
     proto: str | None = None,
     src_ip: str | None = None,
     dst_ip: str | None = None,
+    src_port: int | None = None,
+    dst_port: int | None = None,
     offset: int = 0,
     limit: int = 200,
 ) -> FlowsResponse:
-    flux = (
+    need_strings = bool(src_ip or dst_ip)
+
+    flux = ""
+    if need_strings:
+        flux += 'import "strings"\n'
+
+    flux += (
         f'from(bucket: "{get_settings().influxdb_bucket}")\n'
         f"  |> range(start: {_flux_time(start)}, stop: {_flux_time(stop)})\n"
         '  |> filter(fn: (r) => r._measurement == "flow")\n'
@@ -280,18 +275,17 @@ def get_flows(
     if proto:
         flux += f'  |> filter(fn: (r) => r.proto == "{proto}")\n'
     if src_ip:
-        flux += (
-            f'  |> filter(fn: (r) => strings.containsStr(v: r.src_ip, substr: "{src_ip}"))\n'
-        )
+        flux += f'  |> filter(fn: (r) => strings.containsStr(v: r.src_ip, substr: "{src_ip}"))\n'
     if dst_ip:
-        flux += (
-            f'  |> filter(fn: (r) => strings.containsStr(v: r.dst_ip, substr: "{dst_ip}"))\n'
-        )
-
-    if src_ip or dst_ip:
-        flux = f'import "strings"\n' + flux
+        flux += f'  |> filter(fn: (r) => strings.containsStr(v: r.dst_ip, substr: "{dst_ip}"))\n'
 
     flux += '  |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")\n'
+
+    if src_port is not None:
+        flux += f"  |> filter(fn: (r) => r.src_port == {src_port})\n"
+    if dst_port is not None:
+        flux += f"  |> filter(fn: (r) => r.dst_port == {dst_port})\n"
+
     flux += '  |> sort(columns: ["_time"], desc: true)\n'
     fetch_n = offset + limit
     flux += f"  |> limit(n: {fetch_n})\n"
@@ -301,29 +295,22 @@ def get_flows(
     all_records: list[FlowRecord] = []
     for table in tables:
         for record in table.records:
-            raw_src = record.values.get("src_ip", "unknown")
-            raw_dst = record.values.get("dst_ip", "unknown")
+            src = record.values.get("src_ip", "unknown")
+            dst = record.values.get("dst_ip", "unknown")
             p = str(record.values.get("proto", ""))
-
-            if p in _PROTOS_WITH_PORTS:
-                src_ip_parsed, src_port = _split_endpoint(raw_src)
-                dst_ip_parsed, dst_port = _split_endpoint(raw_dst)
-            else:
-                src_ip_parsed, src_port = raw_src, 0
-                dst_ip_parsed, dst_port = raw_dst, 0
 
             all_records.append(
                 FlowRecord(
                     time=record.get_time(),
-                    src_ip=src_ip_parsed,
-                    src_port=src_port,
-                    dst_ip=dst_ip_parsed,
-                    dst_port=dst_port,
+                    src_ip=src,
+                    src_port=int(record.values.get("src_port", 0) or 0),
+                    dst_ip=dst,
+                    dst_port=int(record.values.get("dst_port", 0) or 0),
                     proto=p,
                     proto_label=PROTO_LABELS.get(p, f"Proto {p}"),
                     bytes=float(record.values.get("bytes", 0) or 0),
                     packets=float(record.values.get("packets", 0) or 0),
-                    direction=_compute_direction(src_ip_parsed, dst_ip_parsed),
+                    direction=_compute_direction(src, dst),
                 )
             )
 

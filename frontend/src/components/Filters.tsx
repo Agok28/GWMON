@@ -81,6 +81,30 @@ export default function Filters({ filters, protocols, onChange, onRefresh, onExp
         />
       </div>
 
+      <div className="filter-group">
+        <label>Src Port</label>
+        <input
+          type="number"
+          placeholder="e.g. 443"
+          min={0}
+          max={65535}
+          value={filters.src_port ?? ''}
+          onChange={(e) => onChange({ ...filters, src_port: e.target.value ? Number(e.target.value) : undefined })}
+        />
+      </div>
+
+      <div className="filter-group">
+        <label>Dst Port</label>
+        <input
+          type="number"
+          placeholder="e.g. 80"
+          min={0}
+          max={65535}
+          value={filters.dst_port ?? ''}
+          onChange={(e) => onChange({ ...filters, dst_port: e.target.value ? Number(e.target.value) : undefined })}
+        />
+      </div>
+
       <div className="filter-actions">
         {onExportPdf && (
           <button className="export-btn" onClick={onExportPdf} disabled={loading}>

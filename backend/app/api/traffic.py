@@ -100,6 +100,8 @@ def list_flows(
     proto: str | None = Query(None, description="Protocol number filter"),
     src_ip: str | None = Query(None, description="Source IP filter"),
     dst_ip: str | None = Query(None, description="Destination IP filter"),
+    src_port: int | None = Query(None, ge=0, le=65535, description="Source port filter"),
+    dst_port: int | None = Query(None, ge=0, le=65535, description="Destination port filter"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     limit: int = Query(200, ge=1, le=1000, description="Max rows to return"),
 ):
@@ -111,6 +113,8 @@ def list_flows(
             proto=proto,
             src_ip=src_ip,
             dst_ip=dst_ip,
+            src_port=src_port,
+            dst_port=dst_port,
             offset=offset,
             limit=limit,
         )

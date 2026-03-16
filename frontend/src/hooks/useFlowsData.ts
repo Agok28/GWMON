@@ -36,7 +36,7 @@ export function useFlowsData(filters: TrafficFilters): FlowsData {
     } finally {
       setLoading(false);
     }
-  }, [filters.start, filters.stop, filters.proto, filters.src_ip, filters.dst_ip]);
+  }, [filters.start, filters.stop, filters.proto, filters.src_ip, filters.dst_ip, filters.src_port, filters.dst_port]);
 
   useEffect(() => { load(); }, [load]);
 

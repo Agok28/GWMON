@@ -189,7 +189,8 @@ body {
 }
 
 .filters-bar select,
-.filters-bar input[type="text"] {
+.filters-bar input[type="text"],
+.filters-bar input[type="number"] {
   padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -200,8 +201,20 @@ body {
   min-width: 130px;
 }
 
+.filters-bar input[type="number"] {
+  min-width: 90px;
+  -moz-appearance: textfield;
+}
+
+.filters-bar input[type="number"]::-webkit-outer-spin-button,
+.filters-bar input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 .filters-bar select:focus,
-.filters-bar input[type="text"]:focus {
+.filters-bar input[type="text"]:focus,
+.filters-bar input[type="number"]:focus {
   border-color: var(--accent);
 }
 
