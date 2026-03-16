@@ -2,7 +2,9 @@ import type {
   TrafficSummaryResponse,
   TopEndpointsResponse,
   ProtocolDistributionResponse,
+  ProtocolOption,
   TrafficFilters,
+  FlowsResponse,
 } from '../types/traffic';
 import apiClient from './client';
 
@@ -41,6 +43,22 @@ export async function fetchTopDestinations(filters: TrafficFilters, limit = 10):
 export async function fetchProtocolDistribution(filters: TrafficFilters): Promise<ProtocolDistributionResponse> {
   const { data } = await apiClient.get<ProtocolDistributionResponse>('/traffic/protocol-distribution', {
     params: buildParams(filters),
+  });
+  return data;
+}
+
+export async function fetchProtocols(): Promise<ProtocolOption[]> {
+  const { data } = await apiClient.get<ProtocolOption[]>('/traffic/protocols');
+  return data;
+}
+
+export async function fetchFlows(
+  filters: TrafficFilters,
+  offset = 0,
+  limit = 200,
+): Promise<FlowsResponse> {
+  const { data } = await apiClient.get<FlowsResponse>('/traffic/flows', {
+    params: buildParams(filters, { offset, limit }),
   });
   return data;
 }

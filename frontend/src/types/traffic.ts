@@ -42,10 +42,36 @@ export interface ProtocolDistributionResponse {
   protocols: ProtocolBucket[];
 }
 
+export interface ProtocolOption {
+  proto: string;
+  label: string;
+}
+
 export interface TrafficFilters {
   start: string;
   stop: string;
   proto?: string;
   src_ip?: string;
   dst_ip?: string;
+}
+
+export interface FlowRecord {
+  time: string;
+  src_ip: string;
+  src_port: number;
+  dst_ip: string;
+  dst_port: number;
+  proto: string;
+  proto_label: string;
+  bytes: number;
+  packets: number;
+  direction: 'inbound' | 'outbound' | 'internal' | 'external';
+}
+
+export interface FlowsResponse {
+  start: string;
+  stop: string;
+  offset: number;
+  limit: number;
+  flows: FlowRecord[];
 }

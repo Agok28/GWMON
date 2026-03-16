@@ -4,8 +4,11 @@ from influxdb_client.client.query_api import QueryApi
 
 from app.core.config import get_settings
 from app.models.traffic import (
+    FlowRecord,
+    FlowsResponse,
     ProtocolBucket,
     ProtocolDistributionResponse,
+    ProtocolOption,
     TopEndpoint,
     TopEndpointsResponse,
     TrafficPoint,
@@ -13,9 +16,27 @@ from app.models.traffic import (
 )
 
 PROTO_LABELS: dict[str, str] = {
-    "6": "TCP",
-    "17": "UDP",
+    "0": "HOPOPT",
     "1": "ICMP",
+    "2": "IGMP",
+    "4": "IPv4",
+    "6": "TCP",
+    "8": "EGP",
+    "17": "UDP",
+    "27": "RDP",
+    "41": "IPv6",
+    "43": "IPv6-Route",
+    "44": "IPv6-Frag",
+    "47": "GRE",
+    "50": "ESP",
+    "51": "AH",
+    "58": "ICMPv6",
+    "59": "IPv6-NoNxt",
+    "60": "IPv6-Opts",
+    "89": "OSPF",
+    "103": "PIM",
+    "112": "VRRP",
+    "132": "SCTP",
     "ALL": "ALL",
 }
 
@@ -213,3 +234,125 @@ def get_protocol_distribution(
             )
 
     return ProtocolDistributionResponse(start=start, stop=stop, protocols=protocols)
+
+
+def _split_endpoint(value: str) -> tuple[str, int]:
+    ip, _, port = value.rpartition(":")
+    if ip:
+        try:
+            return ip, int(port)
+        except ValueError:
+            pass
+    return value, 0
+
+
+def _compute_direction(src_ip: str, dst_ip: str) -> str:
+    src_private = src_ip.startswith(("192.168.", "10.", "172.16."))
+    dst_private = dst_ip.startswith(("192.168.", "10.", "172.16."))
+    if src_private and dst_private:
+        return "internal"
+    if dst_private:
+        return "inbound"
+    if src_private:
+        return "outbound"
+    return "external"
+
+
+_PROTOS_WITH_PORTS = {"6", "17"}
+
+
+def get_flows(
+    query_api: QueryApi,
+    start: datetime,
+    stop: datetime,
+    proto: str | None = None,
+    src_ip: str | None = None,
+    dst_ip: str | None = None,
+    offset: int = 0,
+    limit: int = 200,
+) -> FlowsResponse:
+    flux = (
+        f'from(bucket: "{get_settings().influxdb_bucket}")\n'
+        f"  |> range(start: {_flux_time(start)}, stop: {_flux_time(stop)})\n"
+        '  |> filter(fn: (r) => r._measurement == "flow")\n'
+    )
+
+    if proto:
+        flux += f'  |> filter(fn: (r) => r.proto == "{proto}")\n'
+    if src_ip:
+        flux += (
+            f'  |> filter(fn: (r) => strings.containsStr(v: r.src_ip, substr: "{src_ip}"))\n'
+        )
+    if dst_ip:
+        flux += (
+            f'  |> filter(fn: (r) => strings.containsStr(v: r.dst_ip, substr: "{dst_ip}"))\n'
+        )
+
+    if src_ip or dst_ip:
+        flux = f'import "strings"\n' + flux
+
+    flux += '  |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")\n'
+    flux += '  |> sort(columns: ["_time"], desc: true)\n'
+    fetch_n = offset + limit
+    flux += f"  |> limit(n: {fetch_n})\n"
+
+    tables = query_api.query(flux, org=get_settings().influxdb_org)
+
+    all_records: list[FlowRecord] = []
+    for table in tables:
+        for record in table.records:
+            raw_src = record.values.get("src_ip", "unknown")
+            raw_dst = record.values.get("dst_ip", "unknown")
+            p = str(record.values.get("proto", ""))
+
+            if p in _PROTOS_WITH_PORTS:
+                src_ip_parsed, src_port = _split_endpoint(raw_src)
+                dst_ip_parsed, dst_port = _split_endpoint(raw_dst)
+            else:
+                src_ip_parsed, src_port = raw_src, 0
+                dst_ip_parsed, dst_port = raw_dst, 0
+
+            all_records.append(
+                FlowRecord(
+                    time=record.get_time(),
+                    src_ip=src_ip_parsed,
+                    src_port=src_port,
+                    dst_ip=dst_ip_parsed,
+                    dst_port=dst_port,
+                    proto=p,
+                    proto_label=PROTO_LABELS.get(p, f"Proto {p}"),
+                    bytes=float(record.values.get("bytes", 0) or 0),
+                    packets=float(record.values.get("packets", 0) or 0),
+                    direction=_compute_direction(src_ip_parsed, dst_ip_parsed),
+                )
+            )
+
+    page = all_records[offset : offset + limit]
+    return FlowsResponse(
+        start=start, stop=stop, offset=offset, limit=limit, flows=page,
+    )
+
+
+def get_available_protocols(query_api: QueryApi) -> list[ProtocolOption]:
+    flux = (
+        f'import "influxdata/influxdb/schema"\n'
+        f'schema.tagValues(\n'
+        f'    bucket: "{get_settings().influxdb_bucket}",\n'
+        f'    tag: "proto",\n'
+        f'    predicate: (r) => r._measurement == "traffic_minute",\n'
+        f")\n"
+    )
+
+    tables = query_api.query(flux, org=get_settings().influxdb_org)
+
+    options: list[ProtocolOption] = []
+    for table in tables:
+        for record in table.records:
+            proto = str(record.get_value())
+            if proto == "ALL":
+                continue
+            label = PROTO_LABELS.get(proto, f"Proto {proto}")
+            options.append(ProtocolOption(proto=proto, label=label))
+
+    options.sort(key=lambda o: o.label)
+    return options

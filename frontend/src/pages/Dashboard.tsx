@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import type { TrafficFilters } from '../types/traffic';
+import { useEffect, useState } from 'react';
+import type { TrafficFilters, ProtocolOption } from '../types/traffic';
 import { useTrafficData } from '../hooks/useTrafficData';
+import { fetchProtocols } from '../api/traffic';
 import { exportDashboardPdf } from '../utils/exportPdf';
 import Filters from '../components/Filters';
 import StatCards from '../components/StatCards';
@@ -16,17 +17,25 @@ function defaultFilters(): TrafficFilters {
 
 export default function Dashboard() {
   const [filters, setFilters] = useState<TrafficFilters>(defaultFilters);
+  const [protocols, setProtocols] = useState<ProtocolOption[]>([]);
   const { summary, topSources, topDestinations, protocolDist, loading, error, refresh } =
     useTrafficData(filters);
 
+  useEffect(() => {
+    fetchProtocols()
+      .then(setProtocols)
+      .catch(() => setProtocols([]));
+  }, []);
+
   const handleExportPdf = () => {
-    exportDashboardPdf({ filters, summary, topSources, topDestinations, protocolDist });
+    exportDashboardPdf({ filters, summary, topSources, topDestinations, protocolDist, protocols });
   };
 
   return (
     <main className="dashboard">
       <Filters
         filters={filters}
+        protocols={protocols}
         onChange={setFilters}
         onRefresh={refresh}
         onExportPdf={handleExportPdf}

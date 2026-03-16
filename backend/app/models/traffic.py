@@ -32,6 +32,11 @@ class TopEndpointsResponse(BaseModel):
     endpoints: list[TopEndpoint] = Field(default_factory=list)
 
 
+class ProtocolOption(BaseModel):
+    proto: str
+    label: str
+
+
 class ProtocolBucket(BaseModel):
     proto: str
     label: str
@@ -44,3 +49,24 @@ class ProtocolDistributionResponse(BaseModel):
     start: datetime
     stop: datetime
     protocols: list[ProtocolBucket] = Field(default_factory=list)
+
+
+class FlowRecord(BaseModel):
+    time: datetime
+    src_ip: str
+    src_port: int = 0
+    dst_ip: str
+    dst_port: int = 0
+    proto: str
+    proto_label: str
+    bytes: float = 0.0
+    packets: float = 0.0
+    direction: str
+
+
+class FlowsResponse(BaseModel):
+    start: datetime
+    stop: datetime
+    offset: int
+    limit: int
+    flows: list[FlowRecord] = Field(default_factory=list)

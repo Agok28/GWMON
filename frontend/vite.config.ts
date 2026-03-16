@@ -7,6 +7,7 @@ export default defineConfig({
     proxy: {
       '/health': 'http://localhost:8000',
       '/traffic': 'http://localhost:8000',
+      '/auth': 'http://localhost:8000',
     },
   },
 })

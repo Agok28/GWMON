@@ -3,13 +3,17 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.auth import router as auth_router
 from app.api.traffic import router as traffic_router
 from app.core.config import get_settings
+from app.core.database import Base, engine
 from app.core.influxdb import close_influxdb_client
+from app.models.user import User  # noqa: F401 — ensure model is registered
 
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    Base.metadata.create_all(bind=engine)
     yield
     close_influxdb_client()
 
@@ -29,6 +33,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router)
 app.include_router(traffic_router)
 
 

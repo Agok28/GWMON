@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import type { TrafficFilters } from '../types/traffic';
+import type { TrafficFilters, ProtocolOption } from '../types/traffic';
 
 interface FiltersProps {
   filters: TrafficFilters;
+  protocols: ProtocolOption[];
   onChange: (f: TrafficFilters) => void;
   onRefresh: () => void;
-  onExportPdf: () => void;
+  onExportPdf?: () => void;
   loading: boolean;
 }
 
@@ -18,7 +19,7 @@ const PRESETS: { label: string; hours: number }[] = [
   { label: '30d', hours: 720 },
 ];
 
-export default function Filters({ filters, onChange, onRefresh, onExportPdf, loading }: FiltersProps) {
+export default function Filters({ filters, protocols, onChange, onRefresh, onExportPdf, loading }: FiltersProps) {
   const [activePreset, setActivePreset] = useState<string | null>(null);
 
   const setRange = (hours: number, label: string) => {
@@ -52,9 +53,11 @@ export default function Filters({ filters, onChange, onRefresh, onExportPdf, loa
           onChange={(e) => onChange({ ...filters, proto: e.target.value || undefined })}
         >
           <option value="">All</option>
-          <option value="6">TCP</option>
-          <option value="17">UDP</option>
-          <option value="1">ICMP</option>
+          {protocols.map((p) => (
+            <option key={p.proto} value={p.proto}>
+              {p.label}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -79,9 +82,11 @@ export default function Filters({ filters, onChange, onRefresh, onExportPdf, loa
       </div>
 
       <div className="filter-actions">
-        <button className="export-btn" onClick={onExportPdf} disabled={loading}>
-          Export PDF
-        </button>
+        {onExportPdf && (
+          <button className="export-btn" onClick={onExportPdf} disabled={loading}>
+            Export PDF
+          </button>
+        )}
         <button className="refresh-btn" onClick={onRefresh} disabled={loading}>
           {loading ? 'Loading…' : 'Refresh'}
         </button>

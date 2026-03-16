@@ -6,9 +6,8 @@ import type {
   TrafficSummaryResponse,
   TopEndpointsResponse,
   ProtocolDistributionResponse,
+  ProtocolOption,
 } from '../types/traffic';
-
-const PROTO_MAP: Record<string, string> = { '6': 'TCP', '17': 'UDP', '1': 'ICMP' };
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -27,17 +26,20 @@ interface ExportData {
   topSources: TopEndpointsResponse | null;
   topDestinations: TopEndpointsResponse | null;
   protocolDist: ProtocolDistributionResponse | null;
+  protocols: ProtocolOption[];
 }
 
 export function exportDashboardPdf(data: ExportData) {
-  const { filters, summary, topSources, topDestinations, protocolDist } = data;
+  const { filters, summary, topSources, topDestinations, protocolDist, protocols } = data;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   let y = 20;
 
   const startDate = format(new Date(filters.start), 'yyyy-MM-dd HH:mm');
   const stopDate = format(new Date(filters.stop), 'yyyy-MM-dd HH:mm');
-  const protoLabel = filters.proto ? PROTO_MAP[filters.proto] ?? `Proto ${filters.proto}` : 'All';
+  const protoLabel = filters.proto
+    ? protocols.find((p) => p.proto === filters.proto)?.label ?? `Proto ${filters.proto}`
+    : 'All';
 
   // Title
   doc.setFontSize(20);
