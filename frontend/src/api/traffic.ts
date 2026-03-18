@@ -18,6 +18,7 @@ function buildParams(filters: TrafficFilters, extra?: Record<string, string | nu
   if (filters.dst_ip) params.dst_ip = filters.dst_ip;
   if (filters.src_port !== undefined) params.src_port = filters.src_port;
   if (filters.dst_port !== undefined) params.dst_port = filters.dst_port;
+  if (filters.direction) params.direction = filters.direction;
   return { ...params, ...extra };
 }
 

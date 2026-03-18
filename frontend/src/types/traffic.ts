@@ -55,6 +55,7 @@ export interface TrafficFilters {
   dst_ip?: string;
   src_port?: number;
   dst_port?: number;
+  direction?: string;
 }
 
 export interface FlowRecord {

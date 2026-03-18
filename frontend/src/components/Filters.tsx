@@ -62,6 +62,20 @@ export default function Filters({ filters, protocols, onChange, onRefresh, onExp
       </div>
 
       <div className="filter-group">
+        <label>Direction</label>
+        <select
+          value={filters.direction ?? ''}
+          onChange={(e) => onChange({ ...filters, direction: e.target.value || undefined })}
+        >
+          <option value="">All</option>
+          <option value="outbound">Outbound</option>
+          <option value="inbound">Inbound</option>
+          <option value="internal">Internal</option>
+          <option value="external">External</option>
+        </select>
+      </div>
+
+      <div className="filter-group">
         <label>Source IP</label>
         <input
           type="text"

@@ -102,6 +102,7 @@ def list_flows(
     dst_ip: str | None = Query(None, description="Destination IP filter"),
     src_port: int | None = Query(None, ge=0, le=65535, description="Source port filter"),
     dst_port: int | None = Query(None, ge=0, le=65535, description="Destination port filter"),
+    direction: str | None = Query(None, description="Direction filter (inbound, outbound, internal, external)"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     limit: int = Query(200, ge=1, le=1000, description="Max rows to return"),
 ):
@@ -115,6 +116,7 @@ def list_flows(
             dst_ip=dst_ip,
             src_port=src_port,
             dst_port=dst_port,
+            direction=direction,
             offset=offset,
             limit=limit,
         )

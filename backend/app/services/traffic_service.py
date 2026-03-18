@@ -68,10 +68,6 @@ def get_traffic_summary(
         flux += f'  |> filter(fn: (r) => r.proto == "{proto}")\n'
     else:
         flux += '  |> filter(fn: (r) => r.proto == "ALL")\n'
-    if src_ip:
-        flux += f'  |> filter(fn: (r) => r.src_ip == "{src_ip}")\n'
-    if dst_ip:
-        flux += f'  |> filter(fn: (r) => r.dst_ip == "{dst_ip}")\n'
 
     flux += '  |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")\n'
     flux += '  |> sort(columns: ["_time"])\n'
@@ -248,6 +244,11 @@ def _compute_direction(src_ip: str, dst_ip: str) -> str:
     return "external"
 
 
+_VALID_DIRECTIONS = {"inbound", "outbound", "internal", "external"}
+
+_DIRECTION_OVERFETCH = 4
+
+
 def get_flows(
     query_api: QueryApi,
     start: datetime,
@@ -257,6 +258,7 @@ def get_flows(
     dst_ip: str | None = None,
     src_port: int | None = None,
     dst_port: int | None = None,
+    direction: str | None = None,
     offset: int = 0,
     limit: int = 200,
 ) -> FlowsResponse:
@@ -288,6 +290,8 @@ def get_flows(
 
     flux += '  |> sort(columns: ["_time"], desc: true)\n'
     fetch_n = offset + limit
+    if direction and direction in _VALID_DIRECTIONS:
+        fetch_n *= _DIRECTION_OVERFETCH
     flux += f"  |> limit(n: {fetch_n})\n"
 
     tables = query_api.query(flux, org=get_settings().influxdb_org)
@@ -313,6 +317,9 @@ def get_flows(
                     direction=_compute_direction(src, dst),
                 )
             )
+
+    if direction and direction in _VALID_DIRECTIONS:
+        all_records = [r for r in all_records if r.direction == direction]
 
     page = all_records[offset : offset + limit]
     return FlowsResponse(
