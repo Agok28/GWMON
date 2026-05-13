@@ -8,6 +8,7 @@ import StatCards from '../components/StatCards';
 import TrafficChart from '../components/TrafficChart';
 import ProtocolPieChart from '../components/ProtocolPieChart';
 import TopEndpointsTable from '../components/TopEndpointsTable';
+import AlertsOverview from '../components/AlertsOverview';
 
 function defaultFilters(): TrafficFilters {
   const stop = new Date();
@@ -53,6 +54,8 @@ export default function Dashboard() {
             totalPackets={summary?.total_packets ?? 0}
             totalFlows={summary?.total_flows ?? 0}
           />
+
+          <AlertsOverview />
 
           <div className="charts-row">
             <TrafficChart

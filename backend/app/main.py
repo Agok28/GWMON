@@ -3,11 +3,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.alerts import router as alerts_router
 from app.api.auth import router as auth_router
 from app.api.traffic import router as traffic_router
 from app.core.config import get_settings
 from app.core.database import Base, engine
 from app.core.influxdb import close_influxdb_client
+from app.models.alert import Alert  # noqa: F401 — ensure model is registered
 from app.models.user import User  # noqa: F401 — ensure model is registered
 
 
@@ -35,6 +37,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(traffic_router)
+app.include_router(alerts_router)
 
 
 @app.get("/health")
