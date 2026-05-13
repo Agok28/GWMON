@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react';
 import type { TrafficFilters, ProtocolOption } from '../types/traffic';
 import { useTrafficData } from '../hooks/useTrafficData';
 import { fetchProtocols } from '../api/traffic';
+import {
+  fetchAlerts,
+  fetchAlertsSummary,
+  fetchTopSignatures,
+} from '../api/alerts';
 import { exportDashboardPdf } from '../utils/exportPdf';
+import type { TopAttacker } from '../utils/exportPdf';
 import Filters from '../components/Filters';
 import StatCards from '../components/StatCards';
 import TrafficChart from '../components/TrafficChart';
@@ -28,8 +34,52 @@ export default function Dashboard() {
       .catch(() => setProtocols([]));
   }, []);
 
-  const handleExportPdf = () => {
-    exportDashboardPdf({ filters, summary, topSources, topDestinations, protocolDist, protocols });
+  const handleExportPdf = async () => {
+    const alertFilters = { start: filters.start, stop: filters.stop };
+    try {
+      const [alertsSummary, topSigs, latestPage, attackerSample] = await Promise.all([
+        fetchAlertsSummary(alertFilters),
+        fetchTopSignatures(alertFilters, 10),
+        fetchAlerts(alertFilters, 0, 1),
+        fetchAlerts(alertFilters, 0, 500),
+      ]);
+
+      const counts = new Map<string, number>();
+      for (const a of attackerSample.alerts) {
+        if (!a.src_ip) continue;
+        counts.set(a.src_ip, (counts.get(a.src_ip) ?? 0) + 1);
+      }
+      let topAttacker: TopAttacker | null = null;
+      for (const [ip, c] of counts) {
+        if (!topAttacker || c > topAttacker.count) {
+          topAttacker = { ip, count: c };
+        }
+      }
+
+      exportDashboardPdf({
+        filters,
+        summary,
+        topSources,
+        topDestinations,
+        protocolDist,
+        protocols,
+        alertsSummary,
+        topSignatures: topSigs,
+        latestAlert: latestPage.alerts[0] ?? null,
+        topAttacker,
+        alertsAvailable: true,
+      });
+    } catch {
+      exportDashboardPdf({
+        filters,
+        summary,
+        topSources,
+        topDestinations,
+        protocolDist,
+        protocols,
+        alertsAvailable: false,
+      });
+    }
   };
 
   return (

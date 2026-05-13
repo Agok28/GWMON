@@ -8,6 +8,11 @@ import type {
   ProtocolDistributionResponse,
   ProtocolOption,
 } from '../types/traffic';
+import type {
+  Alert,
+  AlertsSummary,
+  TopSignature,
+} from '../types/alerts';
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -20,6 +25,19 @@ function formatNumber(n: number): string {
   return n.toLocaleString();
 }
 
+function severityLabel(sev: number | null | undefined): string {
+  if (sev === 1) return 'CRITICAL';
+  if (sev === 2) return 'HIGH';
+  if (sev === 3) return 'MEDIUM';
+  if (sev !== null && sev !== undefined && sev >= 4) return 'LOW';
+  return 'UNKNOWN';
+}
+
+export interface TopAttacker {
+  ip: string;
+  count: number;
+}
+
 interface ExportData {
   filters: TrafficFilters;
   summary: TrafficSummaryResponse | null;
@@ -27,10 +45,27 @@ interface ExportData {
   topDestinations: TopEndpointsResponse | null;
   protocolDist: ProtocolDistributionResponse | null;
   protocols: ProtocolOption[];
+  alertsSummary?: AlertsSummary | null;
+  topSignatures?: TopSignature[] | null;
+  latestAlert?: Alert | null;
+  topAttacker?: TopAttacker | null;
+  alertsAvailable?: boolean;
 }
 
 export function exportDashboardPdf(data: ExportData) {
-  const { filters, summary, topSources, topDestinations, protocolDist, protocols } = data;
+  const {
+    filters,
+    summary,
+    topSources,
+    topDestinations,
+    protocolDist,
+    protocols,
+    alertsSummary,
+    topSignatures,
+    latestAlert,
+    topAttacker,
+    alertsAvailable = true,
+  } = data;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   let y = 20;
@@ -129,6 +164,139 @@ export function exportDashboardPdf(data: ExportData) {
     });
 
     y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+  }
+
+  // IDS Alerts section
+  if (alertsAvailable) {
+    if (y > 220) {
+      doc.addPage();
+      y = 20;
+    }
+
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30);
+    doc.text('IDS Alerts', 14, y);
+    y += 7;
+
+    if (!alertsSummary || alertsSummary.total === 0) {
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100);
+      doc.text('No alerts in the selected time range.', 14, y);
+      y += 10;
+    } else {
+      autoTable(doc, {
+        startY: y,
+        head: [['Metric', 'Value']],
+        body: [
+          ['Total Alerts', formatNumber(alertsSummary.total)],
+          ['Critical', formatNumber(alertsSummary.critical)],
+          ['Medium / High', formatNumber(alertsSummary.medium)],
+          ['Low', formatNumber(alertsSummary.low)],
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [229, 115, 115], textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 10, cellPadding: 3 },
+        margin: { left: 14, right: 14 },
+      });
+
+      y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+
+      if (y > 240) {
+        doc.addPage();
+        y = 20;
+      }
+
+      const headlineRows: [string, string][] = [];
+
+      if (latestAlert && latestAlert.timestamp) {
+        const ts = format(new Date(latestAlert.timestamp), 'yyyy-MM-dd HH:mm:ss');
+        const sig = latestAlert.signature ?? 'Unknown signature';
+        const sev = severityLabel(latestAlert.severity);
+        headlineRows.push(['Latest Attack', `[${sev}] ${ts} - ${sig}`]);
+      } else {
+        headlineRows.push(['Latest Attack', '-']);
+      }
+
+      if (topAttacker) {
+        headlineRows.push([
+          'Top Attacker IP',
+          `${topAttacker.ip} (${formatNumber(topAttacker.count)} hits)`,
+        ]);
+      } else {
+        headlineRows.push(['Top Attacker IP', '-']);
+      }
+
+      const mostCommon =
+        topSignatures && topSignatures.length > 0 ? topSignatures[0] : null;
+      if (mostCommon) {
+        headlineRows.push([
+          'Most Common Signature',
+          `[${severityLabel(mostCommon.severity)}] ${mostCommon.signature} (${formatNumber(mostCommon.count)} hits)`,
+        ]);
+      } else {
+        headlineRows.push(['Most Common Signature', '-']);
+      }
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Highlight', 'Detail']],
+        body: headlineRows,
+        theme: 'grid',
+        headStyles: { fillColor: [229, 115, 115], textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 10, cellPadding: 3 },
+        columnStyles: { 0: { cellWidth: 50, fontStyle: 'bold' } },
+        margin: { left: 14, right: 14 },
+      });
+
+      y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+
+      if (topSignatures && topSignatures.length > 0) {
+        if (y > 230) {
+          doc.addPage();
+          y = 20;
+        }
+
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(30);
+        doc.text('Top Signatures', 14, y);
+        y += 7;
+
+        autoTable(doc, {
+          startY: y,
+          head: [['#', 'Signature', 'Severity', 'Count']],
+          body: topSignatures.map((s, i) => [
+            String(i + 1),
+            s.signature,
+            severityLabel(s.severity),
+            formatNumber(s.count),
+          ]),
+          theme: 'grid',
+          headStyles: { fillColor: [229, 115, 115], textColor: [255, 255, 255], fontStyle: 'bold' },
+          styles: { fontSize: 10, cellPadding: 3 },
+          margin: { left: 14, right: 14 },
+        });
+
+        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+      }
+    }
+  } else {
+    if (y > 250) {
+      doc.addPage();
+      y = 20;
+    }
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30);
+    doc.text('IDS Alerts', 14, y);
+    y += 7;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(150);
+    doc.text('(Alerts unavailable)', 14, y);
+    y += 10;
   }
 
   // Top sources
