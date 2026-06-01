@@ -7,6 +7,7 @@ import {
   fetchAlertsSummary,
   fetchTopSignatures,
 } from '../api/alerts';
+import { fetchTrustedIps } from '../api/firewall';
 import { exportDashboardPdf } from '../utils/exportPdf';
 import type { TopAttacker } from '../utils/exportPdf';
 import Filters from '../components/Filters';
@@ -37,16 +38,20 @@ export default function Dashboard() {
   const handleExportPdf = async () => {
     const alertFilters = { start: filters.start, stop: filters.stop };
     try {
-      const [alertsSummary, topSigs, latestPage, attackerSample] = await Promise.all([
-        fetchAlertsSummary(alertFilters),
-        fetchTopSignatures(alertFilters, 10),
-        fetchAlerts(alertFilters, 0, 1),
-        fetchAlerts(alertFilters, 0, 500),
-      ]);
+      const [alertsSummary, topSigs, latestPage, attackerSample, trustedRes] =
+        await Promise.all([
+          fetchAlertsSummary(alertFilters),
+          fetchTopSignatures(alertFilters, 10),
+          fetchAlerts(alertFilters, 0, 1),
+          fetchAlerts(alertFilters, 0, 500),
+          fetchTrustedIps().catch(() => ({ trusted_ips: [] })),
+        ]);
 
+      const trustedSet = new Set(trustedRes.trusted_ips.map((t) => t.ip_address));
       const counts = new Map<string, number>();
       for (const a of attackerSample.alerts) {
         if (!a.src_ip) continue;
+        if (trustedSet.has(a.src_ip)) continue;
         counts.set(a.src_ip, (counts.get(a.src_ip) ?? 0) + 1);
       }
       let topAttacker: TopAttacker | null = null;

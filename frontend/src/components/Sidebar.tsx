@@ -5,7 +5,7 @@ const NAV_ITEMS = [
   { label: 'Dashboard', icon: '▦', to: '/' },
   { label: 'Flows', icon: '⇄', to: '/flows' },
   { label: 'Alerts', icon: '⚠', to: '/alerts' },
-  { label: 'Settings', icon: '⚙', to: null },
+  { label: 'Access Rules', icon: '⛔', to: '/access-rules' },
 ];
 
 export default function Sidebar() {
@@ -18,26 +18,19 @@ export default function Sidebar() {
         <span className="brand-text">GWMON</span>
       </div>
       <nav className="sidebar-nav">
-        {NAV_ITEMS.map((item) =>
-          item.to ? (
-            <NavLink
-              key={item.label}
-              to={item.to}
-              end={item.to === '/'}
-              className={({ isActive }) =>
-                `nav-item${isActive ? ' active' : ''}`
-              }
-            >
-              <span className="nav-icon">{item.icon}</span>
-              <span>{item.label}</span>
-            </NavLink>
-          ) : (
-            <button key={item.label} className="nav-item" disabled>
-              <span className="nav-icon">{item.icon}</span>
-              <span>{item.label}</span>
-            </button>
-          ),
-        )}
+        {NAV_ITEMS.map((item) => (
+          <NavLink
+            key={item.label}
+            to={item.to}
+            end={item.to === '/'}
+            className={({ isActive }) =>
+              `nav-item${isActive ? ' active' : ''}`
+            }
+          >
+            <span className="nav-icon">{item.icon}</span>
+            <span>{item.label}</span>
+          </NavLink>
+        ))}
       </nav>
       <div className="sidebar-footer">
         {user && (

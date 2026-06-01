@@ -8,6 +8,7 @@ export default defineConfig({
       '/health': 'http://localhost:8000',
       '/traffic': 'http://localhost:8000',
       '/auth': 'http://localhost:8000',
+      '/firewall': 'http://localhost:8000',
       '/alerts': {
         target: 'http://localhost:8000',
         bypass: (req) => {

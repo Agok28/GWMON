@@ -10,6 +10,7 @@ import {
   fetchAlertsSummary,
   fetchTopSignatures,
 } from '../api/alerts';
+import { fetchTrustedIps } from '../api/firewall';
 import SeverityBadge from './SeverityBadge';
 import AlertDetailModal from './AlertDetailModal';
 
@@ -39,6 +40,22 @@ export default function AlertsOverview() {
   const [latest, setLatest] = useState<Alert | null>(null);
   const [topAttacker, setTopAttacker] = useState<{ ip: string; count: number } | null>(null);
   const [selectedAlertId, setSelectedAlertId] = useState<number | null>(null);
+  const [trustedSet, setTrustedSet] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchTrustedIps()
+      .then((res) => {
+        if (cancelled) return;
+        setTrustedSet(new Set(res.trusted_ips.map((t) => t.ip_address)));
+      })
+      .catch(() => {
+        // Non-fatal; widget still works, it just may show a gateway IP as top attacker.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,6 +82,7 @@ export default function AlertsOverview() {
         const sample = Array.isArray(attackerSample?.alerts) ? attackerSample.alerts : [];
         for (const a of sample) {
           if (!a?.src_ip) continue;
+          if (trustedSet.has(a.src_ip)) continue;
           counts.set(a.src_ip, (counts.get(a.src_ip) ?? 0) + 1);
         }
         let bestIp: string | null = null;
@@ -87,7 +105,7 @@ export default function AlertsOverview() {
       cancelled = true;
       clearInterval(id);
     };
-  }, []);
+  }, [trustedSet]);
 
   return (
     <>
@@ -122,7 +140,7 @@ export default function AlertsOverview() {
             )}
           </div>
           <div className="overview-card">
-            <span className="overview-label">Top attacker IP</span>
+            <span className="overview-label">Top external attacker IP</span>
             {topAttacker ? (
               <>
                 <span className="overview-value ip-cell">{topAttacker.ip}</span>

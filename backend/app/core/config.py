@@ -18,6 +18,13 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:5173"]
 
+    gateway_firewall_url: str = "http://192.168.56.101:8090"
+    gateway_firewall_token: str = "RAGOCI"
+    gateway_firewall_timeout: float = 5.0
+
+    firewall_worker_interval_seconds: int = 30
+    firewall_worker_enabled: bool = True
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Flows from './pages/Flows';
 import Alerts from './pages/Alerts';
+import AccessRules from './pages/AccessRules';
 import Login from './pages/Login';
 import Register from './pages/Register';
 
@@ -28,6 +29,7 @@ function AppLayout() {
         <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/flows" element={<ProtectedRoute><Flows /></ProtectedRoute>} />
         <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
+        <Route path="/access-rules" element={<ProtectedRoute><AccessRules /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
