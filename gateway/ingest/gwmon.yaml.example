@@ -1,0 +1,18 @@
+# GWMON ingest service configuration
+#
+# Copy this file to /opt/gwmon/config/gwmon.yaml on the Gateway VM and
+# fill in your own InfluxDB credentials. Never commit the real
+# gwmon.yaml (with the token) to the repository.
+
+influxdb:
+  url: http://localhost:8086
+  org: gwmon
+  bucket: traffic
+  token: <YOUR_INFLUXDB_TOKEN>
+
+# Optional overrides for the systemd unit (can be omitted; the service
+# also accepts these values as CLI arguments).
+netflow:
+  dir: /var/log/netflow
+  poll_seconds: 10
+  limit: 300

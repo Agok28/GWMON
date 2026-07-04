@@ -1,0 +1,15 @@
+[Unit]
+Description=GWMON NetFlow ingest service
+After=network-online.target nfcapd.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/gwmon
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/gwmon/.venv/bin/python -m gwmon.ingest.service --config /opt/gwmon/config/gwmon.yaml
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

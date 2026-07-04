@@ -1,0 +1,14 @@
+[Unit]
+Description=GWMON Firewall Agent
+After=network.target
+
+[Service]
+User=ragoci
+WorkingDirectory=/opt/gwmon/firewall-agent
+Environment=FIREWALL_API_TOKEN=<FIREWALL_API_TOKEN>
+ExecStart=/opt/gwmon/firewall-agent/venv/bin/uvicorn agent:app --host 0.0.0.0 --port 8090
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
