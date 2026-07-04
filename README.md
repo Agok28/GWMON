@@ -266,28 +266,40 @@ details.
 
 ## 7. Build Steps
 
-Install dependencies for both applications on the host laptop.
+Install dependencies for both applications on the host laptop. All
+commands below start from the repository root (`GWMON/`).
 
 **Backend**
 
+The Python virtual environment lives at the **repository root**
+(`GWMON/.venv/`); dependencies are installed from
+`backend/requirements.txt`.
+
 ```bash
-cd backend
+# From the repository root (GWMON/)
 python -m venv .venv
-# Windows PowerShell
+
+# Activate the venv
+# Windows PowerShell:
 .\.venv\Scripts\Activate.ps1
-# Linux / macOS
+# Linux / macOS:
 source .venv/bin/activate
 
-pip install -r requirements.txt
+# Install backend dependencies (requirements.txt lives in backend/)
+pip install -r backend/requirements.txt
 ```
 
 > The FastAPI backend is plain Python; it does not require a separate
 > build step. Uvicorn compiles and serves the code on demand.
+>
+> The `.venv/` directory is excluded by `.gitignore`, so it will never
+> be committed.
 
 **Frontend**
 
 ```bash
-cd ../frontend
+# From the repository root (GWMON/)
+cd frontend
 npm install
 npm run build      # produces the optimised production bundle in frontend/dist
 ```
@@ -697,13 +709,17 @@ on the host laptop in **two separate terminals**.
 **Terminal 1 — FastAPI backend**
 
 ```bash
-cd backend
-# Activate the venv (created in Section 7)
+# From the repository root (GWMON/)
+# 1. Activate the venv created in Section 7
 # Windows PowerShell:
 .\.venv\Scripts\Activate.ps1
 # Linux / macOS:
 source .venv/bin/activate
 
+# 2. Change into the backend folder (where app.main lives)
+cd backend
+
+# 3. Start uvicorn
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
@@ -713,6 +729,7 @@ OpenAPI documentation on <http://localhost:8000/docs>.
 **Terminal 2 — React frontend (Vite dev server)**
 
 ```bash
+# From the repository root (GWMON/)
 cd frontend
 npm install          # first time only
 npm run dev          # serves the SPA on http://localhost:5173
